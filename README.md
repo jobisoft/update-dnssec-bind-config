@@ -8,3 +8,56 @@ As a second objective, I wanted to reduce redundancy in my zone files, so I impl
 
 As a third objective, update-dnssec-bind-config should support my [letsencrypt certificate rollovers](https://github.com/jobisoft/rollover-letsencrypt-certs) and automatically publish the TLSA/DANE records. So this script is run daily by cron and grabs the current TLSA records from my webserver. It also grabs all the public S/MIME keys from my mailserver (which needs them for the [auto-encryption](https://github.com/jobisoft/encrypt-smime) of all incoming non-encrypted mails) and generates/publishes the corresponding SMIMEA records.
 
+## update-dnssec-bind.config.ini #
+
+The script is searching for the ini file in the current working directory. All path defined in the config are relative to the current working directory as well:
+
+```
+[GlobalConfig]
+TemplateFolder: example/templates
+GeneratedZoneFolder: example/generated
+named.conf.local: example/named.conf.local
+
+[RemoteUpdates]
+; Everytime the generated config changed, it can be pushed
+; to remote servers. Add the required update command for
+; each server.
+ns1: scp -r example/named.conf.local example/generated ns1.domain.net:~/bind/
+ns2: scp -r example/named.conf.local example/generated ns2.domain.net:~/bind/
+	
+[DNSSEC]
+; All zones which have a subfolder inside the KeyFolder
+; get signed. 
+KeyFolder: example/dnssec
+; This script is using the zonesigner tool to generate
+; the DNSSEC keys (ZSK & KSK) and to actually sign the
+; zones. The ZonesignerOptions string is extended by
+; " -zone <ZoneName> <ZoneFile>"
+; When calling zonesigner, the working directory is set to
+; the zone's keyFolder
+ZonesignerPath: /usr/sbin/zonesigner
+ZonesignerOptions: -algorithm ECDSAP384SHA384 -random /dev/hwrng -endtime 64d --usensec3
+
+[SMIMEA]
+; For each SMIME certificate, which should be added as an
+; SMIMEA record, add a file to this folder, named as the
+; corresponding email adress.
+CertsFolder: example/import/smime
+; If the content of the CertsFolder must be updated from a
+; remote location, set the required update command. 
+; Leave it empty, if not needed.
+UpdateCmd: scp -p mails.domain.net:~/smime/* example/import/smime
+
+[TLSA]
+; For each domain which should get one or more TLSA records,
+; add a file (named as its FQDN) which includes pre-generated
+; TLSA records (usefull project: rollover-letsencrypt-certs). 
+RecordsFolder: example/import/tlsa
+; If the content of the RecordsFolder must be updated from a
+; remote location, set the required update command. 
+; Leave it empty, if not needed.
+UpdateCmd: scp -p www.domain.net:~/tlsa/* example/import/tlsa
+
+```
+
+To setup users on the remote servers, who can only connect via scp and are restricted to a chrooted environment, the tool `rssh` might be usefull.
