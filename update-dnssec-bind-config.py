@@ -224,9 +224,9 @@ def generateZone(zoneName):
 	newZoneFile += soaData[zoneData[zoneName]["SoaRecordTemplate"]]["RecourceRecords"].replace("##SERIAL##", newSerialNr , 1) + "\n\n" 
 	newZoneFile += getResourceRecords(zoneName) + "\n"  
 
-	file = open(GeneratedZoneFolder + zoneName, 'w')
-	file.write(newZoneFile)
-	file.close()
+	with open(GeneratedZoneFolder + zoneName, 'w') as file:
+		os.chmod(GeneratedZoneFolder + zoneName,0o644)
+		file.write(newZoneFile)
 
 	if os.path.isdir(KeyFolder + zoneName):
 		ZonesignerCmd = ZonesignerPath + " " + ZonesignerOptions + " -zone " + zoneName + " " + GeneratedZoneFolder + zoneName
@@ -240,20 +240,23 @@ def generateZone(zoneName):
 
 
 def zoneIsSoonToExpire(zoneName):
-	zone = dns.zone.from_file(getZoneFile(zoneName), zoneName)
-	now = time.gmtime()
+	if os.path.isdir(KeyFolder + zoneName):
+		zone = dns.zone.from_file(getZoneFile(zoneName), zoneName)
+		now = time.gmtime()
 	
-	for name, node in zone.nodes.items():
-		rdatasets = node.rdatasets
-		for rdataset in rdatasets:
-			f = str(rdataset).split(" ")
-			if f[1].upper() == "IN" and f[2].upper() == "RRSIG" and f[3].upper() == "SOA":
-				expire = time.strptime(f[7], '%Y%m%d%H%M%S')
-				days = int((time.mktime(expire) - time.mktime(now))/(60*60*24))
-				if days < 5:
-					return 1
-				else:
-					return 0
+		for name, node in zone.nodes.items():
+			rdatasets = node.rdatasets
+			for rdataset in rdatasets:
+				f = str(rdataset).split(" ")
+				if f[1].upper() == "IN" and f[2].upper() == "RRSIG" and f[3].upper() == "SOA":
+					expire = time.strptime(f[7], '%Y%m%d%H%M%S')
+					days = int((time.mktime(expire) - time.mktime(now))/(60*60*24))
+					if days < 5:
+						return 1
+					else:
+						return 0
+
+	return 0
 
 
 
@@ -331,6 +334,11 @@ KeyFolder = checkFolder(KeyFolder)
 TLSARecordsFolder = checkFolder(TLSARecordsFolder)
 SMIMECertsFolder = checkFolder(SMIMECertsFolder)
 
+# Make the generated zone file folder world readable, so we
+# do not run into permission problems
+os.chmod(GeneratedZoneFolder,0o755)
+
+
 # Init
 configChanged = GenerationIsEnforced
 soaData = {}
@@ -365,7 +373,7 @@ for zoneName in templateZoneFiles:
 		gLMD  = 0
 
 	# Check DNSSEC zone expire and force regen/resign by setting gLMD to one
-	if zoneIsSoonToExpire(zoneName):
+	if gLMD and zoneIsSoonToExpire(zoneName):
 		gLMD = 1
 
 	# Get external TLSA records.
@@ -424,9 +432,9 @@ for zoneName in zoneData:
 # Did the zones config change?
 if not curNamedConf == newNamedConf:
 	newNamedConf = "# Generated " + time.strftime("%Y-%m-%d %H:%M:%S") + "\n\n" + newNamedConf
-	file = open(NamedConfPath, 'w')
-	file.write(newNamedConf)     
-	file.close()
+	with open(NamedConfPath, 'w') as file:
+		os.chmod(NamedConfPath,0o644)
+		file.write(newNamedConf)
 	print "-> Regenerated zone config file <" + NamedConfPath+ ">."
 	configChanged = True
 
