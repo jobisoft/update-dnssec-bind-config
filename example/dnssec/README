@@ -1,0 +1,4 @@
+All zones, which have a subfolder with their name in here, will be signed.
+
+Do NOT delete the generated subfolder, as it contains KSK and ZSK which are
+needed to resign the zone and/or to roll keys.

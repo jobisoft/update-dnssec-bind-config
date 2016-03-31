@@ -1,0 +1,31 @@
+### SOA RECORD START ###
+$TTL	3600
+@	IN	SOA	ns1.domain.net. postmaster.domain.net. (
+		     	##SERIAL##	; serial YYYYMMDDnn
+			        1d	; refresh ( 24h ) - force refresh time (besides NOTIFY)
+			        1h	; retry   (  1h ) - retry refresh on failure/nolink
+			        7d	; expire  (  7d ) - time to de-authoritative the zone on no refresh
+			        1h )	; TTL     (  1h ) - default TTL and/or default negative TTL (RFC 2308)
+
+			IN	NS	ns1.domain.net.
+			IN	NS	ns2.domain.net.
+### SOA RECORD END ###
+
+
+
+; Define variables. Any matching string in the
+; template files using this SOA will be replaced
+
+### DEFINITIONS START ###
+ip:ns1 1.2.3.4
+ip:ns2 4.3.2.1
+### DEFINITIONS END ###
+
+
+
+; Default options for named.local.conf of zones using
+; this SOA template. Zonefiles can overwrite these options.
+
+### OPTIONS START ###
+type master;
+### OPTIONS END ###

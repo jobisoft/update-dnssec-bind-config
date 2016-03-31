@@ -1,0 +1,17 @@
+### SOA:examplesoa ###
+
+### RECORDS START ###
+
+			IN	MX	10	mails.domain.net.
+
+www			IN	A	ip:ns1
+
+### RECORDS END ###
+
+
+
+; Overwriting default options for named.local.conf 
+; defined in SOA template.
+
+### OPTIONS START ###
+### OPTIONS END ###

@@ -1,0 +1,12 @@
+# Generated 2016-03-31 14:51:38
+
+zone "domain.net" {
+  type master;
+  file "/etc/bind/generated/domain.net.signed";
+};
+
+zone "otherdomain.net" {
+  type master;
+  file "/etc/bind/generated/otherdomain.net";
+};
+
