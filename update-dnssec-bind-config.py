@@ -10,7 +10,7 @@
 # Copyright (C) 2016 John Bieling
 #
 # Available at:
-# https://github.com/jobisoft/https://github.com/jobisoft/update-dnssec-bind-config
+# https://github.com/jobisoft/update-dnssec-bind-config
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
@@ -30,7 +30,7 @@
 #ToDo
 # - support views
 # - if generated file gets deleted or zone removed, last serial is lost, bad?
-# - delete removed zones from generate
+# - delete removed zones from generated folder
 # - check if all dns server have the same SERIAL if no updates to be send
 
 # needs dnspython package
@@ -167,7 +167,7 @@ def readSoaTemplate(filename):
 		data["Definitions"] = extractTemplate("DEFINITIONS" ,filestr)
 		data["Options"] = getOptionsDict(extractTemplate("OPTIONS" , filestr))
 
-		# do not allow type custom type options
+		# do not allow custom type options
 		data["Options"].pop("type", None)
 		return data
 
@@ -182,7 +182,7 @@ def readZoneTemplate(filename):
 		data["Options"].update(soaData[data["SoaRecordTemplate"]]["Options"]) 
 		data["Options"].update(getOptionsDict(extractTemplate("OPTIONS" , filestr)))
 
-		# do not allow type custom type options
+		# do not allow custom type options
 		data["Options"].pop("type", None)
 		return data
 
@@ -364,9 +364,9 @@ for zoneName in templateZoneFiles:
 	except OSError:
 		gLMD  = 0
 
-	# Check DNSSEC zone expire and force regen/resign by setting gLMD to zero
+	# Check DNSSEC zone expire and force regen/resign by setting gLMD to one
 	if zoneIsSoonToExpire(zoneName):
-		gLMD = 0
+		gLMD = 1
 
 	# Get external TLSA records.
 	tlsaFiles = getFilesInDirectory(TLSARecordsFolder)
@@ -390,8 +390,10 @@ for zoneName in templateZoneFiles:
 	if tLMD > gLMD or soaData[zoneData[zoneName]["SoaRecordTemplate"]]["LastModificationDate"] > gLMD or GenerationIsEnforced:
 		if GenerationIsEnforced:
 			print "=> Zone <" + zoneName + "> is forced to be (re)generated.";
-		elif not gLMD:
+		elif gLMD == 0:
 			print "=> Zone <" + zoneName + "> has been added and needs to be generated.";
+		elif gLMD == 1:
+			print "=> Zone <" + zoneName + "> is about to expire and needs to be resigned.";
 		else:
 			print "=> Zone <" + zoneName + "> has been modified and needs to be regenerated.";
 		generateZone(zoneName)
