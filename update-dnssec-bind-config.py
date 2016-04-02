@@ -29,12 +29,11 @@
 
 #ToDo
 # - support views
-# - if generated file gets deleted or zone removed, last serial is lost, bad?
 # - delete removed zones from generated folder
 # - check if all dns server have the same SERIAL if no updates to be send
 
 # needs dnspython package
-import socket, ConfigParser, os, sys, dns.zone, time, subprocess, getopt, base64, hashlib
+import socket, ConfigParser, os, sys, dns.zone, dns.resolver, time, subprocess, getopt, base64, hashlib
 from dns.exception import DNSException
 from M2Crypto import X509, SSL
 from binascii import b2a_hex
@@ -100,6 +99,18 @@ def checkFolder(folder):
 			os.makedirs(folder)
 	return folder
 
+def isIP(s):
+	a = s.split('.')
+	if len(a) != 4:
+		return False
+	for x in a:
+		if not x.isdigit():
+			return False
+		i = int(x)
+		if i < 0 or i > 255:
+			return False
+	return True
+
 def getHash(certificate, mtype):
 	# Based on https://github.com/pieterlexis/swede/blob/master/swede
 	# Hashes the certificate based on the mtype.
@@ -136,10 +147,7 @@ def getZoneFile(zoneName, useWritePath = 0):
 	if useWritePath:
 		base = GeneratedZoneFolderWriteInConf
 
-	if os.path.isdir(KeyFolder + zoneName):
-		return base + zoneName + ".signed"
-	else:
-		return base + zoneName
+	return base + zoneName
 
 def extractTemplate(templatetype , filestr):
 	startString = "### " + templatetype + " START ###";
@@ -188,7 +196,7 @@ def readZoneTemplate(filename):
 
 def getCurrentSerial(zoneName):
 	try:
-		zone = dns.zone.from_file(GeneratedZoneFolder + zoneName, zoneName)
+		zone = dns.zone.from_file(getZoneFile(zoneName), zoneName)
 	except:
 		return "0000000000"
 	for (name, ttl, rdata) in zone.iterate_rdatas(dns.rdatatype.SOA):
@@ -224,17 +232,18 @@ def generateZone(zoneName):
 	newZoneFile += soaData[zoneData[zoneName]["SoaRecordTemplate"]]["RecourceRecords"].replace("##SERIAL##", newSerialNr , 1) + "\n\n" 
 	newZoneFile += getResourceRecords(zoneName) + "\n"  
 
-	with open(GeneratedZoneFolder + zoneName, 'w') as file:
-		os.chmod(GeneratedZoneFolder + zoneName,0o644)
+	with open(getZoneFile(zoneName), 'w') as file:
+		os.chmod(getZoneFile(zoneName),0o644)
 		file.write(newZoneFile)
 
 	if os.path.isdir(KeyFolder + zoneName):
-		ZonesignerCmd = ZonesignerPath + " " + ZonesignerOptions + " -zone " + zoneName + " " + GeneratedZoneFolder + zoneName
+		ZonesignerCmd = ZonesignerPath + " " + ZonesignerOptions + " -zone " + zoneName + " " + getZoneFile(zoneName) + " " + getZoneFile(zoneName)  + ".signed"
 		print "-> Calling zonesigner: " + ZonesignerCmd 
 
 		# Call zonesigner
 		p = subprocess.Popen(ZonesignerCmd, cwd=KeyFolder + zoneName, shell=True)
 		p.wait()
+		os.rename(getZoneFile(zoneName)  + ".signed", getZoneFile(zoneName))
 
 	print "-> Zone <" + zoneName + "> has been generated with serial <" + newSerialNr + ">.\n"
 
@@ -447,3 +456,34 @@ if configChanged:
 		print "=> Updating server <" + server + ">"
 		p = subprocess.Popen(RemoteUpdates[server], shell=True)
 		p.wait()
+
+
+	print "-> Waiting 10s for remote servers to update their config ..."
+	time.sleep(10)
+	print "-> Verifying remote configurations ..."
+
+
+	
+# Monitor configs on remote servers
+remoteError = 0
+for zoneName in zoneData:
+	localSerial = getCurrentSerial(zoneName)
+	for server in RemoteUpdates:
+		if not isIP(server):
+			print "** Cannot check serial of remote DNS server <"+server+">. Please provide valid IP in config."
+			continue
+		
+		query = dns.resolver.Resolver()
+		query.nameservers = [server]		
+		try:
+			answers = query.query( zoneName , "SOA" )
+		except  dns.exception.DNSException:
+			print "** DNS query for SOA of <" + zoneName + "> on <" + server + "> failed." 
+			continue
+			
+		remoteSerial = "unknown"		
+		if len(answers)>0:
+			remoteSerial = str(answers[0].serial)
+			
+		if not localSerial == remoteSerial:
+			print "** Serial missmatch: local " + localSerial + " vs " + remoteSerial + " " + str(server +  "        ")[:16]  + " [" + zoneName + "]"
