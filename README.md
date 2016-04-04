@@ -59,5 +59,16 @@ RecordsFolder: example/import/tlsa
 UpdateCmd: scp -p www.domain.net:~/tlsa/* example/import/tlsa
 
 ```
+## Remote server config ##
 
-To setup users on the remote servers, who can only connect via scp and are restricted to a chrooted environment, the tool `rssh` might be usefull.
+To setup users on the remote servers, who can only connect via scp, the tool `rssh` might be usefull. Adding user:
+
+```
+useradd -m -d /home/<user> -s /usr/bin/rssh <user>
+```
+
+and edit `/etc/rssh.conf` to enable SCP for all or just the new user. Furthermore a new incrontab is needed:
+
+```
+/home/<user>/bind/named.conf.local IN_MODIFY /usr/sbin/service bind9 restart
+```
