@@ -220,8 +220,9 @@ def getNextSerial(zoneName):
 def getResourceRecords(zoneName):
 	rr = zoneData[zoneName]["RecourceRecords"]
 	for definition in soaData[zoneData[zoneName]["SoaRecordTemplate"]]["Definitions"].splitlines():
-		(name, ip) = definition.split(" ")
-		rr = rr.replace(name,ip)
+		entry = definition.split(" ")
+		if len(entry) == 2:
+		    rr = rr.replace(entry[0],entry[1])
 	return rr
 
 def generateZone(zoneName):
