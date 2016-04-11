@@ -30,7 +30,6 @@
 #ToDo
 # - support views
 # - delete removed zones from generated folder
-# - check if all dns server have the same SERIAL if no updates to be send
 
 # needs dnspython package
 import socket, ConfigParser, os, sys, dns.zone, dns.resolver, time, subprocess, getopt, base64, hashlib
@@ -248,25 +247,37 @@ def generateZone(zoneName):
 
 	print "-> Zone <" + zoneName + "> has been generated with serial <" + newSerialNr + ">.\n"
 
-
-def zoneIsSoonToExpire(zoneName):
-	if os.path.isdir(KeyFolder + zoneName):
-		zone = dns.zone.from_file(getZoneFile(zoneName), zoneName)
-		now = time.gmtime()
+# Checks DNSSEC status:
+# 0 - ok
+# 1 - dnssec enabled, but not signed yet
+# 2 - about to expire
+# 3 - signed, but not dnssec enabled 
+def get_dnssec_status(zoneName):
+	zone = dns.zone.from_file(getZoneFile(zoneName), zoneName)
+	dnssec_enabled = os.path.isdir(KeyFolder + zoneName)
+	now = time.gmtime()
 	
-		for name, node in zone.nodes.items():
-			rdatasets = node.rdatasets
-			for rdataset in rdatasets:
-				f = str(rdataset).split(" ")
-				if f[1].upper() == "IN" and f[2].upper() == "RRSIG" and f[3].upper() == "SOA":
-					expire = time.strptime(f[7], '%Y%m%d%H%M%S')
-					days = int((time.mktime(expire) - time.mktime(now))/(60*60*24))
-					if days < 5:
-						return 1
-					else:
-						return 0
+	for name, node in zone.nodes.items():
+		rdatasets = node.rdatasets
+		for rdataset in rdatasets:
+			f = str(rdataset).split(" ")
+			if f[1].upper() == "IN" and f[2].upper() == "RRSIG" and f[3].upper() == "SOA":
+				
+				# SOA RSIG found, is this zone DNSSEC enabled? if NOT, config changed -> regen
+				if not dnssec_enabled:
+					return 3
+					
+				expire = time.strptime(f[7], '%Y%m%d%H%M%S')
+				days = int((time.mktime(expire) - time.mktime(now))/(60*60*24))
+				if days < 5:
+					return 2
+				else:
+					return 0
 
-	return 0
+	# reaching this point, if the current zone file does not have a SOA RRSIG
+	# if not dnssec_enabled (0) everything is fine, return 0
+	# if dnssec_enabled but no SOA RRSIG -> need to sigen -> return 1
+	return dnssec_enabled
 
 
 
@@ -382,9 +393,10 @@ for zoneName in templateZoneFiles:
 	except OSError:
 		gLMD  = 0
 
-	# Check DNSSEC zone expire and force regen/resign by setting gLMD to one
-	if gLMD and zoneIsSoonToExpire(zoneName):
-		gLMD = 1
+	# Check DNSSEC zone expire and force regen/resign by setting gLMD to 1,2 or 3 (dnssec_status)
+	dnssec_status = get_dnssec_status(zoneName)
+	if gLMD and dnssec_status:
+		gLMD = dnssec_status
 
 	# Get external TLSA records.
 	tlsaFiles = getFilesInDirectory(TLSARecordsFolder)
@@ -411,7 +423,11 @@ for zoneName in templateZoneFiles:
 		elif gLMD == 0:
 			print "=> Zone <" + zoneName + "> has been added and needs to be generated.";
 		elif gLMD == 1:
+			print "=> Zone <" + zoneName + "> needs to be regenerated, because it is DNSSEC enabled, but not yet signed.";
+		elif gLMD == 2:
 			print "=> Zone <" + zoneName + "> is about to expire and needs to be resigned.";
+		elif gLMD == 3:
+			print "=> Zone <" + zoneName + "> needs to be regenerated, because it is signed but not DNSSEC enabled. ";
 		else:
 			print "=> Zone <" + zoneName + "> has been modified and needs to be regenerated.";
 		generateZone(zoneName)
