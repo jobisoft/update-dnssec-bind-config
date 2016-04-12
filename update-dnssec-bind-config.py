@@ -232,8 +232,13 @@ def generateZone(zoneName):
 	newZoneFile += soaData[zoneData[zoneName]["SoaRecordTemplate"]]["RecourceRecords"].replace("##SERIAL##", newSerialNr , 1) + "\n\n" 
 	newZoneFile += getResourceRecords(zoneName) + "\n"  
 
+	# write actual zone file
 	with open(getZoneFile(zoneName), 'w') as file:
 		os.chmod(getZoneFile(zoneName),0o644)
+		file.write(newZoneFile)
+
+	# store copy of zone file in archive
+	with open(ArchiveFolder + zoneName + "_" + newSerialNr, 'w') as file:
 		file.write(newZoneFile)
 
 	if os.path.isdir(KeyFolder + zoneName):
@@ -323,6 +328,7 @@ except:
 
 # Get all the options.
 TemplateFolder = getConfigEntry('GlobalConfig', 'TemplateFolder', Config)
+ArchiveFolder = getConfigEntry('GlobalConfig', 'ArchiveFolder', Config)
 GeneratedZoneFolder = getConfigEntry('GlobalConfig', 'GeneratedZoneFolder', Config)
 GeneratedZoneFolderWriteInConf = getConfigEntry('GlobalConfig', 'GeneratedZoneFolderWriteInConf', Config)
 NamedConfPath = getConfigEntry('GlobalConfig', 'named.conf.local', Config)
@@ -349,6 +355,7 @@ except:
 TemplateFolder = checkFolder(TemplateFolder)
 SoaFolder = checkFolder(TemplateFolder + "SOA")
 ZonesFolder = checkFolder(TemplateFolder + "ZONES")
+ArchiveFolder = checkFolder(ArchiveFolder)
 GeneratedZoneFolder = checkFolder(GeneratedZoneFolder)
 GeneratedZoneFolderWriteInConf = checkFolder(GeneratedZoneFolderWriteInConf)
 KeyFolder = checkFolder(KeyFolder)
