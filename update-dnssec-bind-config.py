@@ -32,7 +32,7 @@
 # - delete removed zones from generated folder
 
 # needs dnspython package
-import socket, ConfigParser, os, sys, dns.zone, dns.resolver, time, subprocess, getopt, base64, hashlib
+import socket, ConfigParser, os, sys, dns.zone, dns.resolver, time, subprocess, getopt, base64, hashlib, shutil
 from dns.exception import DNSException
 from M2Crypto import X509, SSL
 from binascii import b2a_hex
@@ -237,7 +237,7 @@ def generateZone(zoneName):
 		os.chmod(getZoneFile(zoneName),0o644)
 		file.write(newZoneFile)
 
-	# store copy of zone file in archive
+	# store a copy of the unsigned zone file in archive (easy diff)
 	with open(ArchiveFolder + zoneName + "_" + newSerialNr, 'w') as file:
 		file.write(newZoneFile)
 
@@ -245,10 +245,13 @@ def generateZone(zoneName):
 		ZonesignerCmd = ZonesignerPath + " " + ZonesignerOptions + " -zone " + zoneName + " " + getZoneFile(zoneName) + " " + getZoneFile(zoneName)  + ".signed"
 		print "-> Calling zonesigner: " + ZonesignerCmd 
 
-		# Call zonesigner
+		# call zonesigner
 		p = subprocess.Popen(ZonesignerCmd, cwd=KeyFolder + zoneName, shell=True)
 		p.wait()
 		os.rename(getZoneFile(zoneName)  + ".signed", getZoneFile(zoneName))
+
+		# also store a copy of the signed zone file in archive
+		shutil.copy(getZoneFile(zoneName), ArchiveFolder + zoneName + "_" + newSerialNr + ".signed")
 
 	print "-> Zone <" + zoneName + "> has been generated with serial <" + newSerialNr + ">.\n"
 
