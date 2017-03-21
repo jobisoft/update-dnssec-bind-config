@@ -32,7 +32,7 @@
 # - delete removed zones from generated folder
 
 # needs dnspython package
-import socket, ConfigParser, os, sys, dns.zone, dns.resolver, time, subprocess, getopt, base64, hashlib, shutil
+import socket, ConfigParser, os, sys, dns.zone, dns.resolver, time, subprocess, getopt, base64, hashlib, shutil, re
 from dns.exception import DNSException
 from M2Crypto import X509, SSL
 from binascii import b2a_hex
@@ -221,7 +221,7 @@ def getResourceRecords(zoneName):
 	for definition in soaData[zoneData[zoneName]["SoaRecordTemplate"]]["Definitions"].splitlines():
 		entry = definition.split(" ")
 		if len(entry) == 2:
-		    rr = rr.replace(entry[0],entry[1])
+		    rr = re.sub(r"\b%s\b" % entry[0], entry[1], rr)
 	return rr
 
 def generateZone(zoneName):
