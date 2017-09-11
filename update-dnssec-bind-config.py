@@ -404,9 +404,10 @@ for zoneName in templateZoneFiles:
 		gLMD  = 0
 
 	# Check DNSSEC zone expire and force regen/resign by setting gLMD to 1,2 or 3 (dnssec_status)
-	dnssec_status = get_dnssec_status(zoneName)
-	if gLMD and dnssec_status:
-		gLMD = dnssec_status
+	if gLMD:
+		dnssec_status = get_dnssec_status(zoneName)
+		if dnssec_status:
+			gLMD = dnssec_status
 
 	# Get external TLSA records.
 	tlsaFiles = getFilesInDirectory(TLSARecordsFolder)
